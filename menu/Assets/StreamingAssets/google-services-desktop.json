@@ -1,0 +1,37 @@
+{
+  "client": [
+    {
+      "services": {
+        "appinvite_service": {
+          "status": 0
+        }, 
+        "analytics_service": {
+          "status": 0
+        }
+      }, 
+      "oauth_client": [
+        {
+          "client_id": "887770292876-c3etnf0r8ahqo3cltphuh6h3k5fc5vqo.apps.googleusercontent.com"
+        }
+      ], 
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPm4jIHQa0qNHRR7suM0Qxc-jsbbcPzOA"
+        }
+      ], 
+      "client_info": {
+        "mobilesdk_app_id": "1:887770292876:ios:22f82b9471436be2", 
+        "android_client_info": {
+          "package_name": "com.Bassett.ITTSD"
+        }
+      }
+    }
+  ], 
+  "configuration_version": "1", 
+  "project_info": {
+    "storage_bucket": "ittseniordesign.appspot.com", 
+    "project_id": "ittseniordesign", 
+    "firebase_url": "https://ittseniordesign.firebaseio.com", 
+    "project_number": "887770292876"
+  }
+}
