@@ -38,6 +38,7 @@ public class LoginHandler : MonoBehaviour {
   public GameObject loginCanvas;
   public GameObject gameCanvas;
   const int kMaxLogSize = 16382;
+  
   Firebase.DependencyStatus dependencyStatus = Firebase.DependencyStatus.UnavailableOther;
 
   // When the app starts, check to make sure that we have
@@ -50,6 +51,7 @@ public class LoginHandler : MonoBehaviour {
         gameplayCamera.enabled = false;
         loginCanvas.SetActive(true);
         gameCanvas.SetActive(false);
+        
         Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task => {
       dependencyStatus = task.Result;
       if (dependencyStatus == Firebase.DependencyStatus.Available) {
@@ -236,17 +238,21 @@ public class LoginHandler : MonoBehaviour {
 
   public void SigninAsync() {
     DebugLog(String.Format("Attempting to sign in as {0}...", email));
-    auth.SignInWithEmailAndPasswordAsync(email, password)
+       auth.SignInWithEmailAndPasswordAsync(email, password)
       .ContinueWith(HandleSigninResult);
   }
 
-  void HandleSigninResult(Task<Firebase.Auth.FirebaseUser> authTask) {
-    LogTaskCompletion(authTask, "Sign-in");
+  void HandleSigninResult(Task<Firebase.Auth.FirebaseUser> authTask) {      
+        LogTaskCompletion(authTask, "Sign-in");
+        DatabaseHandler database = new DatabaseHandler();
+        database.writeNewUser(email, "Human");
         Debug.Log("Switching cameras now");
         loginCamera.enabled = false;
         gameplayCamera.enabled = true;
         loginCanvas.SetActive(false);
         gameCanvas.SetActive(true);
+        
+        
     }
 
   public void ReloadUser() {
