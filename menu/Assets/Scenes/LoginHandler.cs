@@ -1,17 +1,3 @@
-// Copyright 2016 Google Inc. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,39 +6,37 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
+
 public class LoginHandler : MonoBehaviour {
 
   protected Firebase.Auth.FirebaseAuth auth;
   private Firebase.Auth.FirebaseAuth otherAuth;
   protected Dictionary<string, Firebase.Auth.FirebaseUser> userByAuth =
-  new Dictionary<string, Firebase.Auth.FirebaseUser>();
+        new Dictionary<string, Firebase.Auth.FirebaseUser>();
   private string logText = "";
   public Text UsernameText;
-  public Text PasswordText;
+  public InputField PasswordText;
+  public Text GameCodeText;
   protected string email = "";
   protected string password = "";
+  protected string gameCode = "";
   protected string displayName = "";
   private bool fetchingToken = false;
-  public Camera loginCamera;
-  public Camera gameplayCamera;
-  public GameObject loginCanvas;
-  public GameObject gameCanvas;
   const int kMaxLogSize = 16382;
-  
+  public DatabaseHandler database;
+
   Firebase.DependencyStatus dependencyStatus = Firebase.DependencyStatus.UnavailableOther;
 
-  // When the app starts, check to make sure that we have
-  // the required dependencies to use Firebase, and if not,
-  // add them if possible.
-
+  public GamePlay gamePlay;
+  public ToggleChecker toggleChecker;
+  public UpdateScreens updateScreen;
 
   public void Start() {
-        loginCamera.enabled = true;
-        gameplayCamera.enabled = false;
-        loginCanvas.SetActive(true);
-        gameCanvas.SetActive(false);
+       
+      updateScreen.switchCameras(true);
+      updateScreen.switchCanvas(true);
         
-        Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task => {
+      Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task => {
       dependencyStatus = task.Result;
       if (dependencyStatus == Firebase.DependencyStatus.Available) {
         InitializeFirebase();
@@ -79,6 +63,16 @@ public class LoginHandler : MonoBehaviour {
     }
         email = UsernameText.text;
         password = PasswordText.text;
+        gameCode = GameCodeText.text;
+
+        if (toggleChecker.checkWhosPlaying())
+        {
+            updateScreen.switchLoginType(true);
+        }
+        else
+        {
+            updateScreen.switchLoginType(false);
+        }
   }
 
   void OnDestroy() {
@@ -160,8 +154,6 @@ public class LoginHandler : MonoBehaviour {
     }
   }
 
-  // Log the result of the specified task, returning true if the task
-  // completed successfully, false otherwise.
   public bool LogTaskCompletion(Task task, string operation) {
     bool complete = false;
     if (task.IsCanceled) {
@@ -192,10 +184,6 @@ public class LoginHandler : MonoBehaviour {
 
   public void CreateUserAsync() {
     DebugLog(String.Format("Attempting to create user {0}...", email));
-
-    // This passes the current displayName through to HandleCreateUserAsync
-    // so that it can be passed to UpdateUserProfile().  displayName will be
-    // reset by AuthStateChanged() when the new user is created and signed in.
     string newDisplayName = displayName;
     auth.CreateUserWithEmailAndPasswordAsync(email, password)
       .ContinueWith((task) => {
@@ -212,11 +200,9 @@ public class LoginHandler : MonoBehaviour {
         return UpdateUserProfileAsync(newDisplayName: newDisplayName);
       }
     }
-    // Nothing to update, so just return a completed Task.
     return Task.FromResult(0);
   }
 
-  // Update the user's display name with the currently selected display name.
   public Task UpdateUserProfileAsync(string newDisplayName = null) {
     if (auth.CurrentUser == null) {
       DebugLog("Not signed in, unable to update user profile");
@@ -235,81 +221,34 @@ public class LoginHandler : MonoBehaviour {
       DisplayDetailedUserInfo(auth.CurrentUser, 1);
     }
   }
-
+  
   public void SigninAsync() {
     DebugLog(String.Format("Attempting to sign in as {0}...", email));
-       auth.SignInWithEmailAndPasswordAsync(email, password)
+        Debug.Log(password);
+        auth.SignInWithEmailAndPasswordAsync(email, password)   
       .ContinueWith(HandleSigninResult);
   }
 
   void HandleSigninResult(Task<Firebase.Auth.FirebaseUser> authTask) {      
         LogTaskCompletion(authTask, "Sign-in");
-        DatabaseHandler database = new DatabaseHandler();
-        database.writeNewUser(email, "Human");
-        Debug.Log("Switching cameras now");
-        loginCamera.enabled = false;
-        gameplayCamera.enabled = true;
-        loginCanvas.SetActive(false);
-        gameCanvas.SetActive(true);
-        
-        
-    }
 
-  public void ReloadUser() {
-    if (auth.CurrentUser == null) {
-      DebugLog("Not signed in, unable to reload user.");
-      return;
+        if (toggleChecker.checkWhosPlaying())
+        {
+            gamePlay.setUsersEmail(email);
+            gamePlay.setGameCode(gameCode);
+            database.getPlayerNumber(email, "Human", gameCode);
+            updateScreen.switchCameras(false);
+            updateScreen.switchCanvas(false);
+        }
+        else
+        {
+            SceneManager.LoadSceneAsync("ProctorScene");
+        } 
     }
-    DebugLog("Reload User Data");
-    auth.CurrentUser.ReloadAsync().ContinueWith(HandleReloadUser);
-  }
-
-  void HandleReloadUser(Task authTask) {
-    if (LogTaskCompletion(authTask, "Reload")) {
-      DisplayDetailedUserInfo(auth.CurrentUser, 1);
-    }
-  }
-
-  public void GetUserToken() {
-    if (auth.CurrentUser == null) {
-      DebugLog("Not signed in, unable to get token.");
-      return;
-    }
-    DebugLog("Fetching user token");
-    fetchingToken = true;
-    auth.CurrentUser.TokenAsync(false).ContinueWith(HandleGetUserToken);
-  }
-
-  void HandleGetUserToken(Task<string> authTask) {
-    fetchingToken = false;
-    if (LogTaskCompletion(authTask, "User token fetch")) {
-      DebugLog("Token = " + authTask.Result);
-    }
-  }
-
-  void GetUserInfo() {
-    if (auth.CurrentUser == null) {
-      DebugLog("Not signed in, unable to get info.");
-    } else {
-      DebugLog("Current user info:");
-      DisplayDetailedUserInfo(auth.CurrentUser, 1);
-    }
-  }
 
   public void SignOut() {
     DebugLog("Signing out.");
     auth.SignOut();
   }
 
-  // Show the providers for the current email address.
-  public void DisplayProvidersForEmail() {
-    auth.FetchProvidersForEmailAsync(email).ContinueWith((authTask) => {
-        if (LogTaskCompletion(authTask, "Fetch Providers")) {
-          DebugLog(String.Format("Email Providers for '{0}':", email));
-          foreach (string provider in authTask.Result) {
-            DebugLog(provider);
-          }
-        }
-      });
-  }
 }
